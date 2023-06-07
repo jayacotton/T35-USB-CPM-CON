@@ -51,7 +51,15 @@ BAUD$4800	EQU 12		; 4800 BAUD
 BAUD$7200	EQU 13		; 7200 BAUD
 BAUD$9600	EQU 14		; 9600 BAUD
 BAUD$19200	EQU 15		; 19.2K BAUD
+;
+; IOBYTE support
+;
+IOBYTE	equ	036h		; IOBYTE switch on the fpga z80 sbc card.
 
+;-------------- PROPELLER CONSOLE_IO (OR SD SYSTEMS VIDIO BOARD) FOR CONSOLE INPUT & OUTPUT
+CONSOLSTATUS   EQU     0H
+CONSOLIN       EQU     01H
+CONSOLOUT      EQU     01H
 
 	; MISCELLANEOUS EQUATES:
 
@@ -351,6 +359,9 @@ IOBYTE		equ	BASEPORT+6H
 ;<<<<<<<<<<<<<<<<<<< MAIN CONSOL STATUS ROUTINE >>>>>>>>>>>>>>>>>>>>>>
 CIST0:				; DEVICE 0 INPUT STATUS:
 CSTS:
+	in	(IOBYTE)
+	ani	1
+	jnz	PCSTS 
 	in	(USBSTATUSPORT)
 	ani	1	; ready bit
 	rz		; uh, not ready
@@ -362,9 +373,12 @@ CSTS:
 ;
 CI0:				;DEVICE 0 INPUT:
 CI:
-	in	(USBSTATUSPORT)
+	in	(IOBYTE)
 	ani	1
-	jz	CI
+	jnz	PCI
+CIL:	in	(USBSTATUSPORT)
+	ani	1
+	jz	CIL
 	in	(USBDATAPORT)
 	ani	7fh
 	ret
@@ -372,6 +386,9 @@ CI:
 ;<<<<<<<<<<<<<<<<<<<<<< MAIN CONSOL OUTPUT ROUTINE >>>>>>>>>>>>>>>>>>>>>>>>>
 ;
 COST0:	; DEVICE 0 OUTPUT STATUS:
+	in	(IOBYTE)
+	ani	1
+	jnz	PCOSTS
 ;	in	(USBSTATUSPORT)
 ;	ani	2	
 ;	rz
@@ -380,17 +397,54 @@ COST0:	; DEVICE 0 OUTPUT STATUS:
 ;
 CO0:				; DEVICE 0 OUTPUT:
 CO:
-	in	(USBSTATUSPORT)
+	in	(IOBYTE)
+	ani	1
+	jnz	PCO
+COL:	in	(USBSTATUSPORT)
 	ani	2	
-	jnz	CO
+	jnz	COL
 	mov	a,c
 	ani	7fh
 	out	(USBDATAPORT)	
 	ret
 ;
 ;
+; propellor console i/o code
 ;
 ;
+PCOSTS:
+;
+PCSTS:
+        IN      (CONSOLSTATUS)
+        ANI     02H
+        JZ	NOCHAR
+        XRA     A
+        DCR     A                       ;RETURN WITH 0FFH IN [A] IF SOMETHING
+        RET
+NOCHAR: XRA     A                       ;RETURN WITH 0 IN A IF NOTHING THERE
+        RET
+;
+PCO:
+SDCONO: IN      (CONSOLSTATUS)       ;SD SYSTEMS OR PROPELLER CONSOLE I/O BOARD PORT
+        ANI     4H
+        JZ      SDCONO
+        MOV      A,C
+        CPI      07H                     ;IS IT A BELL
+        JZ      BELL1
+        CPI      0H                      ;SD BOARD CANNOT TAKE A NULL!
+        RZ     
+        OUT     (CONSOLOUT)
+	MOV      A,C 
+	RET                             ;RETURN CHARACTER SENT IN [A]
+BELL1:	ret
+;
+PCI:
+	IN	(CONSOLSTATUS)
+	ani	02h
+	jz	PCI
+	in	(CONSOLIN)
+	ani	7fh
+	ret
 	;;;;; NULL ROUTINES:
 NULL$CIST:
 NULL$COST:

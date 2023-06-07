@@ -189,26 +189,54 @@ CONIN:		MVI   A,'Z'-40H		; ROUTINE HAS NO FUNCTION IN LOADER BIOS:
 AUXIN:		MVI   A,'Z'-40H		; ROUTINE HAS NO FUNCTION IN LOADER BIOS:
 		RET
 
+;
+; this bit of code is used by the bootloader to print on the selected console
+; a boot message of vast importance....
+;
+IOBYTE		equ 	039H
 BASEPORT	EQU	30H		;Note by using 30H we can use software already on CF-CARDS for the Z80 SBC board
 USBSTATUSPORT	EQU	BASEPORT+4H	;Status port for USB console input port
 USBDATAPORT	EQU	BASEPORT+5H	;Data port for USB console port
+;-------------- PROPELLER CONSOLE_IO (OR SD SYSTEMS VIDIO BOARD) FOR CONSOLE INPUT & OUTPUT
+CONSOLSTATUS   EQU     0H
+CONSOLIN       EQU     01H
+CONSOLOUT      EQU     01H
 
-CONOUT:		CALL	CONOST		; ROUTINE OUTPUTS A CHARACTER IN [C] TO THE CONSOLE:
-		JRNZ	CONOUT
+CONOUT:		in	(IOBYTE)
+		ani	1
+		jnz	PCO
+COL:		CALL	CONOST		; ROUTINE OUTPUTS A CHARACTER IN [C] TO THE CONSOLE
+		JRNZ	COL
 		MOV	A,C
 		CPI	0		; SD BOARD VIDEO DOES NOT LIKE NULLS
 		RZ
-;		OUT	CRTOUT
-	out	USBDATAPORT
+		out	USBDATAPORT
 		RET	
+PCO:		in	(CONSOLSTATUS)
+		ani	4
+		jz	PCO
+		mov	a,c
+		cpi	7
+		jz	BELL1
+		cpi	0
+		rz
+		out	(CONSOLOUT)
+		ret
+BELL1:		ret
+PCOST:		in	(CONSOLSTATUS)
+		ani	2
+		jz	NOCHAR
+		xra	a
+		dcr	a
+		ret
+NOCHAR:		xra	a
+		ret
 
-CONOST:		in	USBSTATUSPORT
-;IN	CRTSTAT		; RETURN CONSOLE OUTPUT STATUS:
-;		ANI	04H
-	ani	2
-;		RnZ			; 0 IF NOT READY
-;		XRA	A
-;		DCR	A
+CONOST:		in	(IOBYTE)
+		ani	1
+		jz	PCOST	
+		in	USBSTATUSPORT
+		ani	2
 		RET
 
 ?MOVE:		XCHG
