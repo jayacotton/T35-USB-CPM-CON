@@ -440,7 +440,7 @@ BELL1:	ret
 ;
 PCI:
 	IN	(CONSOLSTATUS)
-	ani	02h
+	ani	02h	
 	jz	PCI
 	in	(CONSOLIN)
 	ani	7fh

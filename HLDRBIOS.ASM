@@ -223,9 +223,10 @@ PCO:		in	(CONSOLSTATUS)
 		out	(CONSOLOUT)
 		ret
 BELL1:		ret
+
 PCOST:		in	(CONSOLSTATUS)
-		ani	2
-		jz	NOCHAR
+		ani	4
+		jz	NOCHAR	
 		xra	a
 		dcr	a
 		ret
